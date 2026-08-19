@@ -667,7 +667,38 @@ public class ConnectionsManager extends BaseController {
         int proxyPort = preferences.getInt("proxy_port", 1080);
 
         if (preferences.getBoolean("proxy_enabled", false) && !TextUtils.isEmpty(proxyAddress)) {
-            native_setProxySettings(currentAccount, proxyAddress, proxyPort, proxyUsername, proxyPassword, proxySecret);
+            String finalProxyAddress = proxyAddress;
+            int finalProxyPort = proxyPort;
+            String finalProxyUsername = proxyUsername;
+            String finalProxyPassword = proxyPassword;
+            String finalProxySecret = proxySecret;
+
+            boolean isSingBox = !TextUtils.isEmpty(proxySecret) &&
+                    (proxySecret.startsWith("vless://") || proxySecret.startsWith("hysteria://") ||
+                     proxySecret.startsWith("hysteria2://") || proxySecret.startsWith("hy2://") ||
+                     proxySecret.startsWith("vmess://") || proxySecret.startsWith("vmess1://") ||
+                     proxySecret.startsWith("trojan://") || proxySecret.startsWith("ss://") ||
+                     proxySecret.startsWith("tuic://") || proxySecret.startsWith("naive+https://") ||
+                     proxySecret.startsWith("naive+quic://") || proxySecret.startsWith("anytls://") ||
+                     proxySecret.startsWith("shadowtls://"));
+
+            if (isSingBox) {
+                try {
+                    org.telegram.messenger.SharedConfig.ProxyInfo sbProxy = new org.telegram.messenger.SharedConfig.ProxyInfo(
+                            proxyAddress, proxyPort, proxyUsername, proxyPassword, proxySecret);
+                    tw.nekomimi.nekogram.singbox.SingBoxManager sbMgr = tw.nekomimi.nekogram.singbox.SingBoxManager.getInstance();
+                    sbMgr.start(sbProxy);
+                    finalProxyAddress = "127.0.0.1";
+                    finalProxyPort = sbMgr.getLocalSocksPort();
+                    finalProxyUsername = "";
+                    finalProxyPassword = "";
+                    finalProxySecret = "";
+                } catch (Exception e) {
+                    org.telegram.messenger.FileLog.e("sing-box start failed on init", e);
+                }
+            }
+
+            native_setProxySettings(currentAccount, finalProxyAddress, finalProxyPort, finalProxyUsername, finalProxyPassword, finalProxySecret);
         }
         String installer = "";
         try {
@@ -1002,6 +1033,35 @@ public class ConnectionsManager extends BaseController {
         }
         if (secret == null) {
             secret = "";
+        }
+
+        tw.nekomimi.nekogram.singbox.SingBoxManager sbMgr = tw.nekomimi.nekogram.singbox.SingBoxManager.getInstance();
+        boolean isSingBox = enabled && !TextUtils.isEmpty(secret) &&
+                (secret.startsWith("vless://") || secret.startsWith("hysteria://") ||
+                 secret.startsWith("hysteria2://") || secret.startsWith("hy2://") ||
+                 secret.startsWith("vmess://") || secret.startsWith("vmess1://") ||
+                 secret.startsWith("trojan://") || secret.startsWith("ss://") ||
+                 secret.startsWith("tuic://") || secret.startsWith("naive+https://") ||
+                 secret.startsWith("naive+quic://") || secret.startsWith("anytls://") ||
+                 secret.startsWith("shadowtls://"));
+
+        if (isSingBox) {
+            try {
+                org.telegram.messenger.SharedConfig.ProxyInfo sbProxy = new org.telegram.messenger.SharedConfig.ProxyInfo(
+                        address, port, username, password, secret);
+                sbMgr.start(sbProxy);
+                address = "127.0.0.1";
+                port = sbMgr.getLocalSocksPort();
+                username = "";
+                password = "";
+                secret = "";
+            } catch (Exception e) {
+                org.telegram.messenger.FileLog.e("sing-box start failed", e);
+                sbMgr.stop();
+                isSingBox = false;
+            }
+        } else if (sbMgr.isRunning() || !TextUtils.isEmpty(sbMgr.getCurrentLink())) {
+            sbMgr.stop();
         }
 
         for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) {

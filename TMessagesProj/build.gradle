@@ -273,4 +273,7 @@ dependencies {
     implementation 'com.google.android.gms:play-services-wearable:18.0.0'
 
     compileOnly fileTree('libs')
+
+    // sing-box (see bin/singbox/build.sh for how libs/sing-box.aar is produced)
+    implementation files("libs/sing-box.aar")
 }

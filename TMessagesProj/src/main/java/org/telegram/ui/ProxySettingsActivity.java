@@ -77,6 +77,7 @@ public class ProxySettingsActivity extends BaseFragment {
 
     private final static int TYPE_SOCKS5 = 0;
     private final static int TYPE_MTPROTO = 1;
+    private final static int TYPE_SINGBOX = 2;
 
     private final static int FIELD_IP = 0;
     private final static int FIELD_PORT = 1;
@@ -94,7 +95,7 @@ public class ProxySettingsActivity extends BaseFragment {
     private TextSettingsCell shareCell;
     private TextSettingsCell pasteCell;
     private ActionBarMenuItem doneItem;
-    private RadioCell[] typeCell = new RadioCell[2];
+    private RadioCell[] typeCell = new RadioCell[3];
     private int currentType = -1;
 
     private int pasteType = -1;
@@ -213,14 +214,28 @@ public class ProxySettingsActivity extends BaseFragment {
                     }
                     currentProxyInfo.address = inputFields[FIELD_IP].getText().toString();
                     currentProxyInfo.port = Utilities.parseInt(inputFields[FIELD_PORT].getText().toString());
-                    if (currentType == 0) {
+                    if (currentType == TYPE_SOCKS5) {
                         currentProxyInfo.secret = "";
                         currentProxyInfo.username = inputFields[FIELD_USER].getText().toString();
                         currentProxyInfo.password = inputFields[FIELD_PASSWORD].getText().toString();
-                    } else {
+                    } else if (currentType == TYPE_MTPROTO) {
                         currentProxyInfo.secret = inputFields[FIELD_SECRET].getText().toString();
                         currentProxyInfo.username = "";
                         currentProxyInfo.password = "";
+                    } else if (currentType == TYPE_SINGBOX) {
+                        currentProxyInfo.secret = inputFields[FIELD_SECRET].getText().toString();
+                        currentProxyInfo.username = "";
+                        currentProxyInfo.password = "";
+                        try {
+                            android.net.Uri sbUri = android.net.Uri.parse(currentProxyInfo.secret);
+                            if (sbUri.getHost() != null) {
+                                currentProxyInfo.address = sbUri.getHost();
+                                if (sbUri.getPort() != -1) {
+                                    currentProxyInfo.port = sbUri.getPort();
+                                }
+                            }
+                        } catch (Exception ignore) {
+                        }
                     }
 
                     SharedPreferences preferences = MessagesController.getGlobalMainSettings();
@@ -272,14 +287,16 @@ public class ProxySettingsActivity extends BaseFragment {
 
         final View.OnClickListener typeCellClickListener = view -> setProxyType((Integer) view.getTag(), true);
 
-        for (int a = 0; a < 2; a++) {
+        for (int a = 0; a < 3; a++) {
             typeCell[a] = new RadioCell(context);
             typeCell[a].setBackground(Theme.getSelectorDrawable(true));
             typeCell[a].setTag(a);
             if (a == 0) {
-                typeCell[a].setText(LocaleController.getString(R.string.UseProxySocks5), a == currentType, true);
+                typeCell[a].setText(LocaleController.getString(R.string.UseProxySocks5), a == currentType, a != 2);
+            } else if (a == 1) {
+                typeCell[a].setText(LocaleController.getString(R.string.UseProxyTelegram), a == currentType, a != 2);
             } else {
-                typeCell[a].setText(LocaleController.getString(R.string.UseProxyTelegram), a == currentType, false);
+                typeCell[a].setText("Additional Protocol (Beta)", a == currentType, false);
             }
             linearLayout2.addView(typeCell[a], LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 50));
             typeCell[a].setOnClickListener(typeCellClickListener);
@@ -461,6 +478,9 @@ public class ProxySettingsActivity extends BaseFragment {
                     if (pasteType == TYPE_MTPROTO && (i == FIELD_USER || i == FIELD_PASSWORD)) {
                         continue;
                     }
+                    if (pasteType == TYPE_SINGBOX && (i == FIELD_USER || i == FIELD_PASSWORD)) {
+                        continue;
+                    }
                     if (pasteFields[i] != null) {
                         try {
                             inputFields[i].setText(URLDecoder.decode(pasteFields[i], "UTF-8"));
@@ -479,6 +499,9 @@ public class ProxySettingsActivity extends BaseFragment {
                             continue;
                         }
                         if (pasteType == TYPE_MTPROTO && i != FIELD_USER && i != FIELD_PASSWORD) {
+                            continue;
+                        }
+                        if (pasteType == TYPE_SINGBOX && i != FIELD_USER && i != FIELD_PASSWORD) {
                             continue;
                         }
                         inputFields[i].setText(null);
@@ -505,45 +528,53 @@ public class ProxySettingsActivity extends BaseFragment {
             String user = inputFields[FIELD_USER].getText().toString();
             String port = inputFields[FIELD_PORT].getText().toString();
             String secret = inputFields[FIELD_SECRET].getText().toString();
-            String url;
+            String link;
             try {
-                if (!TextUtils.isEmpty(address)) {
-                    params.append("server=").append(URLEncoder.encode(address, "UTF-8"));
-                }
-                if (!TextUtils.isEmpty(port)) {
-                    if (params.length() != 0) {
-                        params.append("&");
-                    }
-                    params.append("port=").append(URLEncoder.encode(port, "UTF-8"));
-                }
-                if (currentType == 1) {
-                    url = "https://t.me/proxy?";
-                    if (params.length() != 0) {
-                        params.append("&");
-                    }
-                    params.append("secret=").append(URLEncoder.encode(secret, "UTF-8"));
+                if (isSingBoxSecret(secret)) {
+                    link = secret;
                 } else {
-                    url = "https://t.me/socks?";
-                    if (!TextUtils.isEmpty(user)) {
+                    String url;
+                    if (!TextUtils.isEmpty(address)) {
+                        params.append("server=").append(URLEncoder.encode(address, "UTF-8"));
+                    }
+                    if (!TextUtils.isEmpty(port)) {
                         if (params.length() != 0) {
                             params.append("&");
                         }
-                        params.append("user=").append(URLEncoder.encode(user, "UTF-8"));
+                        params.append("port=").append(URLEncoder.encode(port, "UTF-8"));
                     }
-                    if (!TextUtils.isEmpty(password)) {
+                    if (currentType == TYPE_MTPROTO) {
+                        url = "https://t.me/proxy?";
                         if (params.length() != 0) {
                             params.append("&");
                         }
-                        params.append("pass=").append(URLEncoder.encode(password, "UTF-8"));
+                        params.append("secret=").append(URLEncoder.encode(secret, "UTF-8"));
+                    } else {
+                        url = "https://t.me/socks?";
+                        if (!TextUtils.isEmpty(user)) {
+                            if (params.length() != 0) {
+                                params.append("&");
+                            }
+                            params.append("user=").append(URLEncoder.encode(user, "UTF-8"));
+                        }
+                        if (!TextUtils.isEmpty(password)) {
+                            if (params.length() != 0) {
+                                params.append("&");
+                            }
+                            params.append("pass=").append(URLEncoder.encode(password, "UTF-8"));
+                        }
                     }
+                    if (params.length() == 0) {
+                        return;
+                    }
+                    link = url + params.toString();
                 }
             } catch (Exception ignore) {
                 return;
             }
-            if (params.length() == 0) {
+            if (link == null || link.isEmpty()) {
                 return;
             }
-            String link = url + params.toString();
             QRCodeBottomSheet alert = new QRCodeBottomSheet(context, LocaleController.getString(R.string.ShareQrCode), link, LocaleController.getString(R.string.QRCodeLinkHelpProxy), true);
             Bitmap icon = SvgHelper.getBitmap(AndroidUtilities.readRes(R.raw.qr_dog), AndroidUtilities.dp(60), AndroidUtilities.dp(60), false);
             alert.setCenterImage(icon);
@@ -561,7 +592,15 @@ public class ProxySettingsActivity extends BaseFragment {
         checkShareDone(false);
 
         currentType = -1;
-        setProxyType(TextUtils.isEmpty(currentProxyInfo.secret) ? 0 : 1, false);
+        int initialType;
+        if (isSingBoxSecret(currentProxyInfo.secret)) {
+            initialType = TYPE_SINGBOX;
+        } else if (TextUtils.isEmpty(currentProxyInfo.secret)) {
+            initialType = TYPE_SOCKS5;
+        } else {
+            initialType = TYPE_MTPROTO;
+        }
+        setProxyType(initialType, false);
 
         pasteType = -1;
         pasteString = null;
@@ -613,6 +652,21 @@ public class ProxySettingsActivity extends BaseFragment {
                         params = clipText.substring(index + proxyStrings[i].length()).split("&");
                         break;
                     }
+                }
+            }
+
+            if (params == null && isSingBoxLink(clipText)) {
+                try {
+                    android.net.Uri proxyUri = android.net.Uri.parse(clipText);
+                    pasteType = TYPE_SINGBOX;
+                    pasteFields[FIELD_IP] = proxyUri.getHost();
+                    int proxyPort = proxyUri.getPort();
+                    if (proxyPort != -1) {
+                        pasteFields[FIELD_PORT] = String.valueOf(proxyPort);
+                    }
+                    pasteFields[FIELD_SECRET] = clipText;
+                    params = new String[0];
+                } catch (Exception ignore) {
                 }
             }
 

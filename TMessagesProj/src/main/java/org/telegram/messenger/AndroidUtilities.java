@@ -4748,15 +4748,28 @@ public class AndroidUtilities {
                 statusTextView[0].setText(getString(R.string.ProxyBottomSheetChecking) + "...");
                 statusTextView[0].clear();
                 try {
-                    ConnectionsManager.getInstance(UserConfig.selectedAccount).checkProxy(address, Integer.parseInt(port), user, password, secret, time -> AndroidUtilities.runOnUIThread(() -> {
-                        if (time == -1) {
-                            statusTextView[0].setText(getString(R.string.Unavailable));
-                            statusTextView[0].setTextColor(Theme.getColor(Theme.key_text_RedRegular));
-                        } else {
-                            statusTextView[0].setText(LocaleController.formatString(R.string.Ping2, time));
-                            statusTextView[0].setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGreenText));
-                        }
-                    }));
+                    if (secret != null && (secret.startsWith("vless://") || secret.startsWith("vmess://") || secret.startsWith("vmess1://") || secret.startsWith("trojan://") || secret.startsWith("ss://") || secret.startsWith("hysteria://") || secret.startsWith("hysteria2://") || secret.startsWith("hy2://") || secret.startsWith("tuic://") || secret.startsWith("naive+https://") || secret.startsWith("naive+quic://") || secret.startsWith("anytls://") || secret.startsWith("shadowtls://"))) {
+                        SharedConfig.ProxyInfo sbInfo = new SharedConfig.ProxyInfo(address, Integer.parseInt(port), user, password, secret);
+                        tw.nekomimi.nekogram.singbox.SingBoxManager.getInstance().ping(sbInfo, 5000, time -> AndroidUtilities.runOnUIThread(() -> {
+                            if (time == -1) {
+                                statusTextView[0].setText(getString(R.string.Unavailable));
+                                statusTextView[0].setTextColor(Theme.getColor(Theme.key_text_RedRegular));
+                            } else {
+                                statusTextView[0].setText(LocaleController.formatString(R.string.Ping2, time));
+                                statusTextView[0].setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGreenText));
+                            }
+                        }));
+                    } else {
+                        ConnectionsManager.getInstance(UserConfig.selectedAccount).checkProxy(address, Integer.parseInt(port), user, password, secret, time -> AndroidUtilities.runOnUIThread(() -> {
+                            if (time == -1) {
+                                statusTextView[0].setText(getString(R.string.Unavailable));
+                                statusTextView[0].setTextColor(Theme.getColor(Theme.key_text_RedRegular));
+                            } else {
+                                statusTextView[0].setText(LocaleController.formatString(R.string.Ping2, time));
+                                statusTextView[0].setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGreenText));
+                            }
+                        }));
+                    }
                 } catch (NumberFormatException ignored) {
                     statusTextView[0].setText(getString(R.string.Unavailable));
                     statusTextView[0].setTextColor(Theme.getColor(Theme.key_text_RedRegular));

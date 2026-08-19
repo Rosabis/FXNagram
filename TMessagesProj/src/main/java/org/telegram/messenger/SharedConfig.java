@@ -421,6 +421,9 @@ public class SharedConfig {
         }
 
         public String getLink() {
+            if (isSingBoxSecret()) {
+                return secret;
+            }
             StringBuilder url = new StringBuilder(!TextUtils.isEmpty(secret) ? "https://t.me/proxy?" : "https://t.me/socks?");
             try {
                 url.append("server=").append(URLEncoder.encode(address, "UTF-8")).append("&").append("port=").append(port);
@@ -447,6 +450,17 @@ public class SharedConfig {
                     lnk.getQueryParameter("pass"),
                     lnk.getQueryParameter("secret")
             );
+        }
+
+        public boolean isSingBoxSecret() {
+            if (TextUtils.isEmpty(secret)) return false;
+            return secret.startsWith("vless://") || secret.startsWith("vmess://") ||
+                   secret.startsWith("vmess1://") || secret.startsWith("trojan://") ||
+                   secret.startsWith("ss://") || secret.startsWith("hysteria://") ||
+                   secret.startsWith("hysteria2://") || secret.startsWith("hy2://") ||
+                   secret.startsWith("tuic://") || secret.startsWith("naive+https://") ||
+                   secret.startsWith("naive+quic://") || secret.startsWith("anytls://") ||
+                   secret.startsWith("shadowtls://");
         }
     }
 
