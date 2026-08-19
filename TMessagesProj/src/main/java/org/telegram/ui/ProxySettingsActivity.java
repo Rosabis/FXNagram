@@ -657,14 +657,24 @@ public class ProxySettingsActivity extends BaseFragment {
 
             if (params == null && isSingBoxLink(clipText)) {
                 try {
-                    android.net.Uri proxyUri = android.net.Uri.parse(clipText);
-                    pasteType = TYPE_SINGBOX;
-                    pasteFields[FIELD_IP] = proxyUri.getHost();
-                    int proxyPort = proxyUri.getPort();
-                    if (proxyPort != -1) {
-                        pasteFields[FIELD_PORT] = String.valueOf(proxyPort);
+                    String link = clipText.trim();
+                    if (link.length() > 1 && link.charAt(0) == '"' && link.charAt(link.length() - 1) == '"') {
+                        link = link.substring(1, link.length() - 1);
                     }
-                    pasteFields[FIELD_SECRET] = clipText;
+                    android.net.Uri proxyUri = android.net.Uri.parse(link);
+                    pasteType = TYPE_SINGBOX;
+                    try {
+                        String host = proxyUri.getHost();
+                        if (!TextUtils.isEmpty(host)) {
+                            pasteFields[FIELD_IP] = host;
+                        }
+                        int proxyPort = proxyUri.getPort();
+                        if (proxyPort != -1) {
+                            pasteFields[FIELD_PORT] = String.valueOf(proxyPort);
+                        }
+                    } catch (Exception ignore) {
+                    }
+                    pasteFields[FIELD_SECRET] = link;
                     params = new String[0];
                 } catch (Exception ignore) {
                 }
@@ -727,13 +737,11 @@ public class ProxySettingsActivity extends BaseFragment {
 
     private static boolean isSingBoxLink(String text) {
         if (TextUtils.isEmpty(text)) return false;
-        return text.startsWith("vless://") || text.startsWith("vmess://") ||
-               text.startsWith("vmess1://") || text.startsWith("trojan://") ||
-               text.startsWith("ss://") || text.startsWith("hysteria://") ||
-               text.startsWith("hysteria2://") || text.startsWith("hy2://") ||
-               text.startsWith("tuic://") || text.startsWith("naive+https://") ||
-               text.startsWith("naive+quic://") || text.startsWith("anytls://") ||
-               text.startsWith("shadowtls://");
+        text = text.trim();
+        if (text.length() > 1 && text.charAt(0) == '"' && text.charAt(text.length() - 1) == '"') {
+            text = text.substring(1, text.length() - 1);
+        }
+        return isSingBoxSecret(text);
     }
 
     private void setShareDoneEnabled(boolean enabled, boolean animated) {
@@ -768,7 +776,11 @@ public class ProxySettingsActivity extends BaseFragment {
         if (shareCell == null || doneItem == null || inputFields[FIELD_IP] == null || inputFields[FIELD_PORT] == null) {
             return;
         }
-        setShareDoneEnabled(inputFields[FIELD_IP].length() != 0 && Utilities.parseInt(inputFields[FIELD_PORT].getText().toString()) != 0, animated);
+        if (currentType == TYPE_SINGBOX) {
+            setShareDoneEnabled(inputFields[FIELD_SECRET].length() != 0, animated);
+        } else {
+            setShareDoneEnabled(inputFields[FIELD_IP].length() != 0 && Utilities.parseInt(inputFields[FIELD_PORT].getText().toString()) != 0, animated);
+        }
     }
 
     private void setProxyType(int type, boolean animated) {
@@ -828,9 +840,16 @@ public class ProxySettingsActivity extends BaseFragment {
                 ((View) inputFields[FIELD_SECRET].getParent()).setVisibility(View.VISIBLE);
                 ((View) inputFields[FIELD_PASSWORD].getParent()).setVisibility(View.GONE);
                 ((View) inputFields[FIELD_USER].getParent()).setVisibility(View.GONE);
+            } else if (currentType == TYPE_SINGBOX) {
+                bottomCells[0].setVisibility(View.GONE);
+                bottomCells[1].setVisibility(View.GONE);
+                ((View) inputFields[FIELD_SECRET].getParent()).setVisibility(View.VISIBLE);
+                ((View) inputFields[FIELD_PASSWORD].getParent()).setVisibility(View.GONE);
+                ((View) inputFields[FIELD_USER].getParent()).setVisibility(View.GONE);
             }
             typeCell[0].setChecked(currentType == 0, animated);
             typeCell[1].setChecked(currentType == 1, animated);
+            typeCell[2].setChecked(currentType == 2, animated);
         }
     }
 
