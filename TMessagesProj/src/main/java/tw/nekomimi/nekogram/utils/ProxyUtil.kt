@@ -391,8 +391,9 @@ object ProxyUtil {
         var port = 0
         runCatching {
             val uri = Uri.parse(secret)
-            if (!uri.host.isNullOrEmpty()) {
-                address = uri.host
+            val host = uri.host
+            if (host != null && host.isNotEmpty()) {
+                address = host
             }
             val uriPort = uri.port
             if (uriPort != -1) {
