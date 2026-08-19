@@ -15,6 +15,7 @@ import android.graphics.Color
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
+import android.net.Uri
 import android.os.Environment
 import android.util.Base64
 import android.view.Gravity
@@ -301,26 +302,36 @@ object ProxyUtil {
 
         var error = false
 
-        text?.trim()?.split('\n')?.map { it.split(" ") }?.forEach { it ->
+        fun parseLine(line: String) {
+            if (line.startsWith("tg://proxy") ||
+                line.startsWith("tg://socks") ||
+                line.startsWith("https://t.me/proxy") ||
+                line.startsWith("https://t.me/socks")) {
 
-            it.forEach { line ->
+                runCatching { proxies.add(SharedConfig.ProxyInfo.fromUrl(line)) }.onFailure {
 
-                if (line.startsWith("tg://proxy") ||
-                    line.startsWith("tg://socks") ||
-                    line.startsWith("https://t.me/proxy") ||
-                    line.startsWith("https://t.me/socks")) {
+                    error = true
 
-                    runCatching { proxies.add(SharedConfig.ProxyInfo.fromUrl(line)) }.onFailure {
+                    showToast(getString(R.string.BrokenLink) + ": ${it.message ?: it.javaClass.simpleName}")
 
-                        error = true
+                }
 
-                        showToast(getString(R.string.BrokenLink) + ": ${it.message ?: it.javaClass.simpleName}")
+            } else if (isSingBoxSecret(line)) {
 
-                    }
+                runCatching { proxies.add(createSingBoxProxy(line)) }.onFailure {
+
+                    error = true
+
+                    showToast(getString(R.string.BrokenLink) + ": ${it.message ?: it.javaClass.simpleName}")
 
                 }
 
             }
+        }
+
+        text?.trim()?.split('\n')?.map { it.split(" ") }?.forEach { it ->
+
+            it.forEach { line -> parseLine(line) }
 
         }
 
@@ -330,24 +341,7 @@ object ProxyUtil {
 
                 String(Base64.decode(text, Base64.NO_PADDING)).trim().split('\n').map { it.split(" ") }.forEach { str ->
 
-                    str.forEach { line ->
-
-                        if (line.startsWith("tg://proxy") ||
-                            line.startsWith("tg://socks") ||
-                            line.startsWith("https://t.me/proxy") ||
-                            line.startsWith("https://t.me/socks")) {
-
-                            runCatching { proxies.add(SharedConfig.ProxyInfo.fromUrl(line)) }.onFailure {
-
-                                error = true
-
-                                showToast(getString(R.string.BrokenLink) + ": ${it.message ?: it.javaClass.simpleName}")
-
-                            }
-
-                        }
-
-                    }
+                    str.forEach { line -> parseLine(line) }
 
                 }
 
@@ -363,7 +357,7 @@ object ProxyUtil {
 
         } else if (!error) {
 
-            AlertUtil.showSimpleAlert(ctx, getString(R.string.ImportedProxies) + "\n\n" + proxies.joinToString("\n") { it.address })
+            AlertUtil.showSimpleAlert(ctx, getString(R.string.ImportedProxies) + "\n\n" + proxies.joinToString("\n") { it.address.ifEmpty { it.secret } })
 
         }
 
@@ -379,6 +373,33 @@ object ProxyUtil {
 
         }
 
+    }
+
+    private fun isSingBoxSecret(secret: String): Boolean {
+        if (secret.isEmpty()) return false
+        return secret.startsWith("vless://") || secret.startsWith("vmess://") ||
+                secret.startsWith("vmess1://") || secret.startsWith("trojan://") ||
+                secret.startsWith("ss://") || secret.startsWith("hysteria://") ||
+                secret.startsWith("hysteria2://") || secret.startsWith("hy2://") ||
+                secret.startsWith("tuic://") || secret.startsWith("naive+https://") ||
+                secret.startsWith("naive+quic://") || secret.startsWith("anytls://") ||
+                secret.startsWith("shadowtls://")
+    }
+
+    private fun createSingBoxProxy(secret: String): SharedConfig.ProxyInfo {
+        var address = ""
+        var port = 0
+        runCatching {
+            val uri = Uri.parse(secret)
+            if (!uri.host.isNullOrEmpty()) {
+                address = uri.host
+            }
+            val uriPort = uri.port
+            if (uriPort != -1) {
+                port = uriPort
+            }
+        }
+        return SharedConfig.ProxyInfo(address, port, "", "", secret)
     }
 
     @JvmStatic
