@@ -714,6 +714,28 @@ public class ProxySettingsActivity extends BaseFragment {
         }
     }
 
+    private static boolean isSingBoxSecret(String secret) {
+        if (TextUtils.isEmpty(secret)) return false;
+        return secret.startsWith("vless://") || secret.startsWith("vmess://") ||
+               secret.startsWith("vmess1://") || secret.startsWith("trojan://") ||
+               secret.startsWith("ss://") || secret.startsWith("hysteria://") ||
+               secret.startsWith("hysteria2://") || secret.startsWith("hy2://") ||
+               secret.startsWith("tuic://") || secret.startsWith("naive+https://") ||
+               secret.startsWith("naive+quic://") || secret.startsWith("anytls://") ||
+               secret.startsWith("shadowtls://");
+    }
+
+    private static boolean isSingBoxLink(String text) {
+        if (TextUtils.isEmpty(text)) return false;
+        return text.startsWith("vless://") || text.startsWith("vmess://") ||
+               text.startsWith("vmess1://") || text.startsWith("trojan://") ||
+               text.startsWith("ss://") || text.startsWith("hysteria://") ||
+               text.startsWith("hysteria2://") || text.startsWith("hy2://") ||
+               text.startsWith("tuic://") || text.startsWith("naive+https://") ||
+               text.startsWith("naive+quic://") || text.startsWith("anytls://") ||
+               text.startsWith("shadowtls://");
+    }
+
     private void setShareDoneEnabled(boolean enabled, boolean animated) {
         if (shareDoneEnabled != enabled) {
             if (shareDoneAnimator != null) {
